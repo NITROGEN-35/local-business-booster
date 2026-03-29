@@ -55,6 +55,7 @@ const Navbar = () => {
         >
           <a href="#features" className="text-muted-foreground hover:text-foreground py-2" onClick={() => setIsOpen(false)}>Features</a>
           <a href="#how-it-works" className="text-muted-foreground hover:text-foreground py-2" onClick={() => setIsOpen(false)}>How It Works</a>
+          <a href="#pricing" className="text-muted-foreground hover:text-foreground py-2" onClick={() => setIsOpen(false)}>Pricing</a>
           <a href="#contact" className="text-muted-foreground hover:text-foreground py-2" onClick={() => setIsOpen(false)}>Contact</a>
           <Button className="font-semibold w-full">Get Started</Button>
         </motion.div>
