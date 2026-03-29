@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const LeadFormSection = () => {
   const { toast } = useToast();
@@ -13,16 +14,41 @@ const LeadFormSection = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.email.trim()) {
+    const name = formData.name.trim();
+    const email = formData.email.trim();
+    if (!name || !email) {
       toast({ title: "Please fill in required fields", variant: "destructive" });
       return;
     }
+    if (name.length > 100 || email.length > 255 || formData.business.length > 200 || formData.message.length > 1000) {
+      toast({ title: "Input too long", variant: "destructive" });
+      return;
+    }
+
     setIsSubmitting(true);
-    // Simulate submission
-    await new Promise((r) => setTimeout(r, 1200));
-    toast({ title: "🎉 Lead submitted!", description: "We'll get back to you with an AI-powered response shortly." });
-    setFormData({ name: "", business: "", email: "", message: "" });
-    setIsSubmitting(false);
+    try {
+      // Insert lead into database
+      const { data: lead, error } = await supabase
+        .from("leads")
+        .insert({ name, business: formData.business || null, email, message: formData.message || null })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Trigger AI auto-reply (fire and forget)
+      supabase.functions.invoke("ai-reply", {
+        body: { leadId: lead.id, name, business: formData.business, message: formData.message },
+      });
+
+      toast({ title: "🎉 Lead submitted!", description: "We'll get back to you with an AI-powered response shortly." });
+      setFormData({ name: "", business: "", email: "", message: "" });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Something went wrong", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -58,6 +84,7 @@ const LeadFormSection = () => {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="bg-secondary border-border"
+                maxLength={100}
               />
             </div>
             <div>
@@ -67,6 +94,7 @@ const LeadFormSection = () => {
                 value={formData.business}
                 onChange={(e) => setFormData({ ...formData, business: e.target.value })}
                 className="bg-secondary border-border"
+                maxLength={200}
               />
             </div>
             <div>
@@ -77,6 +105,7 @@ const LeadFormSection = () => {
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="bg-secondary border-border"
+                maxLength={255}
               />
             </div>
             <div>
@@ -86,6 +115,7 @@ const LeadFormSection = () => {
                 value={formData.message}
                 onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                 className="bg-secondary border-border min-h-[100px]"
+                maxLength={1000}
               />
             </div>
             <Button type="submit" className="w-full font-semibold glow-box" disabled={isSubmitting}>
