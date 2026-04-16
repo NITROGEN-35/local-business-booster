@@ -22,16 +22,8 @@ const AdminDashboard = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Redirect if not admin
-  if (!authLoading && (!user || !isAdmin)) {
-    return <Navigate to="/admin/login" replace />;
-  }
-
-  if (authLoading) {
-    return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading…</div>;
-  }
-
   useEffect(() => {
+    if (authLoading || !user || !isAdmin) return;
     const fetchLeads = async () => {
       const { data, error } = await supabase
         .from("leads")
@@ -43,7 +35,6 @@ const AdminDashboard = () => {
     };
     fetchLeads();
 
-    // Realtime subscription
     const channel = supabase
       .channel("leads-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => {
@@ -52,7 +43,15 @@ const AdminDashboard = () => {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [authLoading, user, isAdmin]);
+
+  if (authLoading) {
+    return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading…</div>;
+  }
+
+  if (!user || !isAdmin) {
+    return <Navigate to="/admin/login" replace />;
+  }
 
   const totalLeads = leads.length;
   const repliedLeads = leads.filter((l) => l.status === "replied").length;
