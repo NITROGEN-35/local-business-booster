@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Bot, Users, MessageSquare, Clock, ArrowLeft } from "lucide-react";
+import { Bot, Users, MessageSquare, Clock, ArrowLeft, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,15 +12,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Tables } from "@/integrations/supabase/types";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 type Lead = Tables<"leads">;
 
 const AdminDashboard = () => {
+  const { user, isAdmin, loading: authLoading, signOut } = useAdminAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading || !user || !isAdmin) return;
     const fetchLeads = async () => {
       const { data, error } = await supabase
         .from("leads")
@@ -32,7 +35,6 @@ const AdminDashboard = () => {
     };
     fetchLeads();
 
-    // Realtime subscription
     const channel = supabase
       .channel("leads-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => {
@@ -41,7 +43,15 @@ const AdminDashboard = () => {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [authLoading, user, isAdmin]);
+
+  if (authLoading) {
+    return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading…</div>;
+  }
+
+  if (!user || !isAdmin) {
+    return <Navigate to="/admin/login" replace />;
+  }
 
   const totalLeads = leads.length;
   const repliedLeads = leads.filter((l) => l.status === "replied").length;
@@ -64,11 +74,16 @@ const AdminDashboard = () => {
               <span className="text-muted-foreground font-normal text-sm">Admin</span>
             </h1>
           </div>
-          <Link to="/">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-1" /> Back to site
+          <div className="flex items-center gap-2">
+            <Link to="/">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-1" /> Back to site
+              </Button>
+            </Link>
+            <Button variant="ghost" size="sm" onClick={signOut}>
+              <LogOut className="h-4 w-4 mr-1" /> Sign Out
             </Button>
-          </Link>
+          </div>
         </div>
       </header>
 
